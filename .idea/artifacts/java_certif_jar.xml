@@ -1,0 +1,13 @@
+<component name="ArtifactManager">
+  <artifact name="java-certif:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/java_certif_jar</output-path>
+    <root id="root">
+      <element id="archive" name="java-certif.jar">
+        <element id="module-output" name="MyCertif" />
+      </element>
+      <element id="file-copy" path="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.18/lombok-1.18.18.jar" />
+      <element id="library" level="project" name="jar" />
+      <element id="file-copy" path="$PROJECT_DIR$/chapters.json" />
+    </root>
+  </artifact>
+</component>

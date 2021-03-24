@@ -1,0 +1,6 @@
+Manifest-Version: 1.0
+Main-Class: com.fra.certif.Main
+Class-Path: lombok-1.18.18.jar json-20210307.jar commons-io-2.8.0.jar co
+ mmons-io-2.8.0-tests.jar commons-io-2.8.0-javadoc.jar commons-io-2.8.0-
+ sources.jar commons-io-2.8.0-test-sources.jar
+
