@@ -43,7 +43,7 @@ public class Main {
     int correctAnswers = 0;
     int allAnswers = 0;
     int historyIndex = -1;
-    boolean chapterSelection = true;
+    boolean chapterSelection = false;
     List<Question> proceccedQuestions = new ArrayList<>();
     List<Boolean> checkedQuestions = new ArrayList<>();
 
