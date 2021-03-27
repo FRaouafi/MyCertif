@@ -1,16 +1,19 @@
 package com.fra.certif;
 
-import com.fra.model.*;
-import lombok.NonNull;
+import com.fra.model.Answer;
+import com.fra.model.Handler;
+import com.fra.model.Question;
+import com.fra.model.Response;
 
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.fra.model.Handler.Status.OK;
 
 public class Main {
     private JPanel mainPanel;
@@ -35,49 +38,35 @@ public class Main {
     private JButton checkButton;
     private JLabel score;
     private JTextArea explanationTextArea;
-    private JComboBox chapterSelector;
+    private JComboBox<String> chapterSelector;
 
-    List<Chapter> chapterList = JsonLoader.Load();
-    int chapterIndex = 0;
-    int questionIndex = 0;
-    int correctAnswers = 0;
-    int allAnswers = 0;
-    int historyIndex = -1;
-    boolean chapterSelection = false;
-    List<Question> proceccedQuestions = new ArrayList<>();
-    List<Boolean> checkedQuestions = new ArrayList<>();
+    Handler handler = new Handler();
 
 
     public Main() {
         chapterSelector.addItem("All chapters");
-        chapterList.forEach(chapter -> chapterSelector.addItem(chapter.getName()));
+        handler.getChapterNames().forEach(chapterSelector::addItem);
         startButton.addActionListener(actionEvent -> {
             startButton.setEnabled(false);
             checkButton.setEnabled(true);
             nextButton.setEnabled(true);
-            nextQuestion();
+            moveNext();
         });
         checkButton.addActionListener(actionEvent -> checktResponse());
         nextButton.addActionListener(actionEvent -> {
             prevButton.setEnabled(true);
-            nextQuestion();
-            if (chapterList.size() == 0) {
-                nextButton.setEnabled(false);
-            }
+            updateText();
+            moveNext();
+
         });
         prevButton.addActionListener(actionEvent -> {
-                    historyIndex--;
-                    showQuestion();
-                    if (historyIndex == 0) {
-                        prevButton.setEnabled(false);
-                    }
+            updateText();
+            moveBack();
                 }
         );
         chapterSelector.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent actionEvent) {
-                chapterIndex = Math.max(chapterSelector.getSelectedIndex()-1, 0);
-                chapterSelection = chapterSelector.getSelectedIndex() == 0;
             }
         });
     }
@@ -92,81 +81,44 @@ public class Main {
         frame.setVisible(true);
     }
 
-
-    private void nextQuestion() {
-        reset();
-        if (historyIndex == proceccedQuestions.size() - 1) {
-            increment();
-            Question question = chapterList.get(chapterIndex).getQuestionList().get(questionIndex);
-            proceccedQuestions.add(question);
-            checkedQuestions.add(false);
-            chapterList.get(chapterIndex).getQuestionList().remove(question);
-            if (chapterList.get(chapterIndex).getQuestionList().size() == 0) {
-                chapterList.remove(chapterList.get(chapterIndex));
-            }
-        }
-
-        allAnswers++;
-        historyIndex++;
-        showQuestion();
+    private void updateText() {
+        handler.update(questionText.getText());
+    }
+    private void moveNext() {
+        handler.moveNext(chapterSelector.getSelectedIndex(), sequentialCheckBox.isSelected());
+        printQuestion();
     }
 
-    private void showQuestion() {
-        final Chapter chapter = chapterList.get(chapterIndex);
-        chapter.getQuestionList().remove(currentQuestion());
+    private void moveBack() {
+        handler.moveBack();
+        printQuestion();
+    }
+
+    private void printQuestion() {
+        reset();
+        Question question = handler.getCurrentQuestion();
+        String chapterName = handler.getCurrentChapterNames();
         questionText.setText("\t***   "
-                + chapter.getName()
+                + chapterName
                 + " (Rem: "
-                + chapter.getQuestionList().size()
-                + ")   ***\n" + currentQuestion().getValue());
+                + "chapter.getQuestionList().size()"
+                + ")   ***\n" + question.getValue());
         AtomicInteger idx = new AtomicInteger();
-        currentQuestion().getResponseList().forEach(rep -> {
+        question.getResponseList().forEach(rep -> {
             setChoice(rep, idx.getAndIncrement());
         });
         printScore();
     }
 
-    @NonNull
-    private Question currentQuestion() {
-        return proceccedQuestions.get(historyIndex);
-    }
-
     private void checktResponse() {
-        boolean correct = isCorrect();
-        disable();
-        if (!checkedQuestions.get(historyIndex)) {
-            correctAnswers += correct ? 1 : 0;
-            printScore();
-        }
-    }
-
-    private void printScore() {
-        score.setText(correctAnswers + "/" + allAnswers);
-        score.setForeground(correctAnswers > allAnswers * 2 / 3 ? Color.GREEN.darker() : Color.red);
-    }
-
-    @Deprecated
-    private boolean isCorrect2() {
-        boolean correct = true;
-        Answer answer = currentQuestion().getAnswer();
-        explanationTextArea.setText(answer.getValue());
-        List<String> codes = answer.getCodeList();
-        for (int i = 0; i < 6; ++i) {
-            if ((choices[i].isSelected() && !codes.contains(String.valueOf((char) ('A' + i)))) ||
-                    (!choices[i].isSelected() && codes.contains(String.valueOf((char) ('A' + i))))) {
-                correct = false;
-                choices[i].setSelected(!choices[i].isSelected());
-                choices[i].setForeground(Color.red);
-            } else if (choices[i].isSelected() && codes.contains(String.valueOf((char) ('A' + i)))) {
-                choices[i].setForeground(Color.green.darker());
-            }
-        }
-        return correct;
+        handler.check(isCorrect());
+        printScore();
     }
 
     private boolean isCorrect() {
         boolean correct = true;
-        Answer answer = currentQuestion().getAnswer();
+        Question currentQuestion = handler.getCurrentQuestion();
+        Answer answer = currentQuestion.getAnswer();
         explanationTextArea.setText(answer.getValue());
         List<String> codes = answer.getCodeList();
         for (int i = 0; i < 6; ++i) {
@@ -179,6 +131,11 @@ public class Main {
             }
         }
         return correct;
+    }
+
+    private void printScore() {
+        score.setText(handler.getScore());
+        score.setForeground(handler.getStatus() == OK ? Color.GREEN.darker() : Color.red);
     }
 
     void setChoice(final Response response, final int idx) {
@@ -196,26 +153,4 @@ public class Main {
         });
     }
 
-    void disable() {
-        Arrays.stream(choices).forEach(entry -> {
-            // entry.setEnabled(false);
-        });
-    }
-
-    private void increment() {
-        if (/*!sequentialCheckBox.isSelected() && !*/chapterSelection) {
-            chapterIndex = (int) (Math.random() * (chapterList.size() - 1));
-        }
-        if (sequentialCheckBox.isSelected()) {
-            questionIndex = (int) (Math.random() * (chapterList.get(chapterIndex).getQuestionList().size() - 1));
-        }
-    }
-
-    private void right(JCheckBox checkBox) {
-        checkBox.setForeground(Color.green.darker());
-    }
-
-    private void wrong(JCheckBox checkBox) {
-        checkBox.setForeground(Color.red);
-    }
 }
